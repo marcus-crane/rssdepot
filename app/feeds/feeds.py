@@ -17,7 +17,7 @@ class RSSFeed(DjangoFeed):
         return obj.url
 
     def items(self, obj):
-        return FeedEntry.objects.filter(feed=obj).order_by("-published_at")
+        return FeedEntry.objects.filter(feed=obj).order_by("-published_at")[:100]
     
     def item_title(self, item):
         return item.title
