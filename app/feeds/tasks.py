@@ -91,7 +91,7 @@ def scan_rnz_phil_pennington(self, page=1, max_depth=2):
                 backfilled=False,
                 created_at=current_time,
                 updated_at=current_time,
-                modified_at=current_time,
+                published_at=current_time,
             )
             entries_created += 1
             
