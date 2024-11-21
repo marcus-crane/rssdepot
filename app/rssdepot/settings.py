@@ -30,12 +30,17 @@ if SECRET_KEY == '':
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+# Presumably this is fine because accessing locally (even if you spoof the host header)
+# doesn't give you any special abilities.
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "[::1]"
 ]
 
+PROD_HOST = os.environ.get('PRODUCTION_HOST', False)
+if PROD_HOST and PROD_HOST != '':
+    ALLOWED_HOSTS.append(PROD_HOST)
 
 # Application definition
 
