@@ -67,8 +67,9 @@ class RSSFeed(DjangoFeed):
         self.request = request
 
         # ?page=X is generic and supported by Newsblur
+        # Wordpress installs support ?paged=X but we opt to use paged from RFC 5005 https://datatracker.ietf.org/doc/html/rfc5005#section-3
         # https://forum.newsblur.com/t/newsblur-premium-archive-subscription-keeps-all-of-your-stories-searchable-shareable-and-unread-forever/9402
-        page_param = request.GET.get('page') or request.GET.get('paged')
+        page_param = request.GET.get('page')
         if page_param and page_param.isdigit():
             self.page_num = max(1, int(page_param))
         
@@ -119,7 +120,6 @@ class RSSFeed(DjangoFeed):
             query_params['page'] = [str(page_num)]
         else:
             query_params.pop('page', None)
-            query_params.pop('paged', None)
         url_parts[4] = urlencode(query_params, doseq=True)
         return urlunparse(url_parts)
 
