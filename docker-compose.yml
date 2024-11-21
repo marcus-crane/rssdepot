@@ -6,7 +6,7 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - PRODUCTION_HOST=${PRODUCTION_HOST}
+      - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
       - ./app:/usr/src/app/
     ports:
@@ -18,7 +18,7 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - PRODUCTION_HOST=${PRODUCTION_HOST}
+      - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
       - ./app:/usr/src/app/
   celerybeat:
@@ -28,6 +28,6 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - PRODUCTION_HOST=${PRODUCTION_HOST}
+      - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
       - ./app:/usr/src/app/

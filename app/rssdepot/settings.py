@@ -38,9 +38,11 @@ ALLOWED_HOSTS = [
     "[::1]"
 ]
 
-PROD_HOST = os.environ.get('PRODUCTION_HOST', False)
-if PROD_HOST and PROD_HOST != '':
-    ALLOWED_HOSTS.append(PROD_HOST)
+PROD_HOSTS = os.environ.get('PRODUCTION_HOSTS', '')
+if PROD_HOSTS and PROD_HOSTS != '':
+    for host in PROD_HOSTS.split(','):
+        if host != '':
+            ALLOWED_HOSTS.append(host)
 
 # Application definition
 
