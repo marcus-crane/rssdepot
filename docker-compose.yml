@@ -5,6 +5,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
     volumes:
       - ./app:/usr/src/app/
     ports:
@@ -15,6 +16,7 @@ services:
     command: celery -A rssdepot worker -l INFO
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
     volumes:
       - ./app:/usr/src/app/
   celerybeat:
@@ -23,5 +25,6 @@ services:
     command: celery -A rssdepot beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
       - CELERY_BROKER_URL=redis://redis:6379
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
     volumes:
       - ./app:/usr/src/app/
