@@ -1,4 +1,5 @@
 import logging
+import time
 
 from bs4 import BeautifulSoup
 from django.utils import timezone
@@ -13,15 +14,26 @@ logger = logging.getLogger(__name__)
 @app.task(bind=True)
 def queue_backlog(self):
     backlog = FeedEntry.objects.filter(backfilled=False)
+    results = {
+        'processed': 0,
+        'errors': 0,
+        'error_details': [],
+        'total': backlog.count()
+    }
     for item in backlog:
-        scan_entry.apply_async(
-            kwargs={
-                'url': item.url,
-            }
-        )
+        # TODO: Capture more detail
+        success = scan_entry(item.url)
+        if success:
+            results['processed'] += 1
+        else:
+            results['errors'] += 1
+            results['error_details'].append({
+                'url': item.url
+            })
+        time.sleep(1)
+    return results
 
-@app.task(bind=True)
-def scan_entry(self, url):
+def scan_entry(url):
     entry = FeedEntry.objects.get(url=url)
     article = newspaper.article(url)
     # TODO: Move this to on save functions for model
