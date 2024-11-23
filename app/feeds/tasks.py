@@ -101,7 +101,7 @@ def scan_uber_engineering(self, page=1, max_depth=2):
 
             published_at = datetime.fromisoformat(published)
             modified_at = published_at
-            if modified != '':
+            if modified is None:
                 # Since 2022-07-07 and prior, some articles do not have modified times
                 # so we just set published instead
                 modified_at = datetime.fromisoformat(modified)
