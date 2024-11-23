@@ -92,16 +92,26 @@ def scan_uber_engineering(self, page=1, max_depth=2):
 
             url = story.get('link')
 
+            if FeedEntry.objects.filter(url=url).exists():
+                continue
+
             article_meta = story.get('yoast_head_json', {})
             title = article_meta.get('title')
+            if title is None:
+                title = article_meta.get('twitter_title')
+            description = article_meta.get('description')
+            if description is None:
+                description = article_meta.get('twitter_description')
 
             published = article_meta.get('article_published_time')
             modified = article_meta.get('article_modified_time')
             authors = article_meta.get('author')
+            if not authors:
+                authors = article_meta.get('twitter_misc', {}).get('Written by', 'Unknown')
 
             published_at = datetime.fromisoformat(published)
             modified_at = published_at
-            if modified is None:
+            if modified is not None:
                 # Since 2022-07-07 and prior, some articles do not have modified times
                 # so we just set published instead
                 modified_at = datetime.fromisoformat(modified)
