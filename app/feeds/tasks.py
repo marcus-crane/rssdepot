@@ -100,7 +100,11 @@ def scan_uber_engineering(self, page=1, max_depth=2):
             authors = article_meta.get('author')
 
             published_at = datetime.fromisoformat(published)
-            modified_at = datetime.fromisoformat(modified)
+            modified_at = published_at
+            if modified != '':
+                # Since 2022-07-07 and prior, some articles do not have modified times
+                # so we just set published instead
+                modified_at = datetime.fromisoformat(modified)
 
             current_time = timezone.now()
             FeedEntry.objects.create(
