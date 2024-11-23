@@ -38,6 +38,10 @@ ALLOWED_HOSTS = [
     "[::1]"
 ]
 
+CSRF_TRUSTED_ORIGINS = [x for x in os.environ.get('CSRF_TRUSTED_ORIGINS', '') if x != '']
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 PROD_HOSTS = os.environ.get('PRODUCTION_HOSTS', '')
 if PROD_HOSTS and PROD_HOSTS != '':
     for host in PROD_HOSTS.split(','):

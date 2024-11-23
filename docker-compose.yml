@@ -4,7 +4,7 @@ services:
     build: ./app
     command: python manage.py runserver 0.0.0.0:8000
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
@@ -16,7 +16,7 @@ services:
     build: ./app
     command: celery -A rssdepot worker -l INFO
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
@@ -26,7 +26,7 @@ services:
     build: ./app
     command: celery -A rssdepot beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - PRODUCTION_HOSTS=${PRODUCTION_HOSTS}
     volumes:
