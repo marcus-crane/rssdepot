@@ -58,7 +58,7 @@ def scan_entry(url):
 @app.task(bind=True)
 def scan_uber_engineering(self, page=1, max_depth=2):
     uber_base = 'https://www.uber.com'
-    uber_url = f'https://blogapi.uber.com/wp-json/wp/v2/posts?languages=2257&categories=221148&page={page}'
+    uber_url = f'https://blogapi.uber.com/wp-json/wp/v2/posts?languages=2257&categories=221148&page={page}&per_page=50'
 
     logger.info(f"Scanning Page {page} of {max_depth} - URL: {uber_url}")
 
@@ -107,6 +107,8 @@ def scan_uber_engineering(self, page=1, max_depth=2):
                 description = article_meta.get('og_description')
             if description is None:
                 description = article_meta.get('twitter_description')
+            if description is None:
+                description = ""
 
             published = article_meta.get('article_published_time')
             modified = article_meta.get('article_modified_time')
