@@ -98,8 +98,13 @@ def scan_uber_engineering(self, page=1, max_depth=2):
             article_meta = story.get('yoast_head_json', {})
             title = article_meta.get('title')
             if title is None:
+                title = article_meta.get('og_title')
+            if title is None:
                 title = article_meta.get('twitter_title')
+
             description = article_meta.get('description')
+            if description is None:
+                description = article_meta.get('og_description')
             if description is None:
                 description = article_meta.get('twitter_description')
 
