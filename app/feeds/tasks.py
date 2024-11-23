@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import time
 
@@ -53,6 +54,87 @@ def scan_entry(url):
     entry.save()
     print("Saved article")
     return True
+
+@app.task(bind=True)
+def scan_uber_engineering(self, page=1, max_depth=2):
+    uber_base = 'https://www.uber.com'
+    uber_url = f'https://blogapi.uber.com/wp-json/wp/v2/posts?languages=2257&categories=221148&page={page}'
+
+    logger.info(f"Scanning Page {page} of {max_depth} - URL: {uber_url}")
+
+    try:
+        r = requests.get(uber_url)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch page {page}: {str(e)}")
+        return False
+
+    try:
+        feed = Feed.objects.get(hostname=uber_base)
+    except Feed.DoesNotExist:
+        logger.error(f"Feed not found for hostname: {uber_base}")
+        return False
+
+    stories = r.json()
+
+    if r.status_code == 400 and stories.get('code') == 'rest_post_invalid_page_number':
+        logger.info(f"Reached end of available posts. Page {page} doesn't exist.")
+        return True
+
+    entries_created = 0
+    for story in stories:
+        try:
+            raw_content = story.get('content', {}).get('rendered', '')
+            content = BeautifulSoup(raw_content, 'html.parser').__str__().strip()
+
+            raw_description = story.get('excerpt', {}).get('rendered', '')
+            description = BeautifulSoup(raw_description, 'html.parser').text.strip()
+
+            url = story.get('link')
+
+            article_meta = story.get('yoast_head_json', {})
+            title = article_meta.get('title')
+
+            published = article_meta.get('article_published_time')
+            modified = article_meta.get('article_modified_time')
+            authors = article_meta.get('author')
+
+            published_at = datetime.fromisoformat(published)
+            modified_at = datetime.fromisoformat(modified)
+
+            current_time = timezone.now()
+            FeedEntry.objects.create(
+                feed=feed,
+                title=title,
+                authors=authors,
+                description=description,
+                content=content,
+                url=url,
+                in_feed=True,
+                backfilled=True,
+                created_at=current_time,
+                updated_at=modified_at,
+                published_at=published_at,
+            )
+            entries_created += 1
+
+        except AttributeError as e:
+            logger.warning(f"Failed to parse story: {str(e)}")
+            continue
+
+    logger.info(f"Created {entries_created} new entries on page {page}")
+
+    if page < max_depth:
+        scan_uber_engineering.apply_async(
+            kwargs={
+                'page': page + 1,
+                'max_depth': max_depth
+            },
+            countdown=5
+        )
+        return f"Scheduled page {page + 1}"
+
+    return f"Completed scanning Page {page}"
 
 @app.task(bind=True)
 def scan_rnz_phil_pennington(self, page=1, max_depth=2):
