@@ -1,0 +1,4 @@
+beautifulsoup4==4.13.3
+fastapi==0.115.8
+feedgen==1.0.0
+requests==2.32.3
