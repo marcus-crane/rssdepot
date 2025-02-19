@@ -149,9 +149,6 @@ def serve_ubereng():
             description = ""
 
         published = article_meta.get('article_published_time')
-        authors = article_meta.get('author')
-        if not authors:
-            authors = article_meta.get('twitter_misc', {}).get('Written by', 'Unknown')
 
         published_at = pendulum.parse(published)
         modified = article_meta.get('article_modified_time')
@@ -164,7 +161,6 @@ def serve_ubereng():
         articles.append({
             'title': title,
             'description': description,
-            'author': authors,
             'text': text,
             'date': published_at,
             'modified': modified_at,
@@ -177,7 +173,6 @@ def serve_ubereng():
         fe = fg.add_entry()
         fe.id(article['link'])
         fe.title(article['title'])
-        fe.author(author=article['author'])
         fe.pubDate(pubDate=article['date'])
         fe.updated(updated=article['modified'])
         fe.link(href=article['link'])
