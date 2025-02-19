@@ -1,13 +1,14 @@
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Response
 from feedgen.feed import FeedGenerator
+import newspaper
 import pendulum
 import requests
 
 app = FastAPI()
 
 # We fetch some article sources to figure more info but we don't want to fetch for every run
-url_time_cache = {}
+url_cache = {}
 
 @app.get("/")
 def root():
@@ -68,39 +69,23 @@ def serve_rnzpp():
     articles = []
 
     for article in raw_articles:
-        text = article.find('div', class_='o-digest__summary').text
-        date_unparsed = article.find('span', class_='o-kicker__time').text
         link_segment = article.find('h3', class_='o-digest__headline').a.attrs['href']
         link = f"https://www.rnz.co.nz{link_segment}"
-        title = article.find('h3', class_='o-digest__headline').text
+        article = url_cache.get(link, False)
+        if not article:
+            cached_article = newspaper.article(link)
+            url_cache[link] = cached_article
+            article = cached_article
 
-        # if 'today' not in date_unparsed:
-        #     
-        # else:
-        if 'today' in date_unparsed:
-            today = pendulum.today(tz='Pacific/Auckland')
-            date_unparsed_tweaked = date_unparsed.replace(" today", "").replace("am", "AM").replace("pm", "PM")
-            parsed_time = pendulum.from_format(date_unparsed_tweaked, "h:mm A", tz='Pacific/Auckland')
-            date = today.set(hour=parsed_time.hour, minute=parsed_time.minute, second=0)
-
-        if 'today' not in date_unparsed:
-            # 2:14 pm on 18 February 2025
-            cached_date = url_time_cache.get(link, False)
-            if not cached_date:
-                # fetch page to get timestamp and cache result
-                r = requests.get(link)
-                soup2 = BeautifulSoup(r.text, 'html.parser')
-                # One article had a case of double whitespace one time
-                # https://www.rnz.co.nz/news/political/541208/trump-gaza-plan-not-proposal-but-threat-says-federation-of-islamic-associations
-                raw_date = soup2.find('span', class_='updated').text.strip().replace("am", "AM").replace("pm", "PM").replace("  ", " ")
-                print(raw_date, link)
-                date = pendulum.from_format(raw_date, "h:mm A [on] D MMMM YYYY", tz="Pacific/Auckland")
-                url_time_cache[link] = date
-            else:
-                date = cached_date
+        text = article.article_html
+        title = article.title
+        print(title)
+        date = article.publish_date
+        summary = article.meta_description
         
         articles.append({
             'title': title,
+            'summary': summary,
             'text': text,
             'date': date,
             'link': link
@@ -114,14 +99,15 @@ def serve_rnzpp():
         fe.title(article['title'])
         fe.pubDate(pubDate=article['date'])
         fe.link(href=article['link'])
+        fe.summary(summary=article['summary'])
         fe.description(description=str(article['text']), isSummary=False)
     
     # clear cache with articles that have dropped out of feed
     links = set([article['link'] for article in articles])
-    cached_links = set(url_time_cache.keys())
+    cached_links = set(url_cache.keys())
     links_to_remove = cached_links - links
     for link in links_to_remove:
-        del url_time_cache[link]
+        del url_cache[link]
 
     rssfeed = fg.rss_str(pretty=True)
     return Response(content=rssfeed, media_type="application/xml")
@@ -191,6 +177,7 @@ def serve_ubereng():
         fe = fg.add_entry()
         fe.id(article['link'])
         fe.title(article['title'])
+        fe.author(author=article['author'])
         fe.pubDate(pubDate=article['date'])
         fe.updated(updated=article['modified'])
         fe.link(href=article['link'])
