@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Response
-
 from bs4 import BeautifulSoup
+from fastapi import FastAPI, Response
 from feedgen.feed import FeedGenerator
 import pendulum
 import requests
@@ -123,6 +122,80 @@ def serve_rnzpp():
     links_to_remove = cached_links - links
     for link in links_to_remove:
         del url_time_cache[link]
+
+    rssfeed = fg.rss_str(pretty=True)
+    return Response(content=rssfeed, media_type="application/xml")
+
+@app.get("/uber-engineering.rss")
+def serve_ubereng():
+    r = requests.get("https://blogapi.uber.com/wp-json/wp/v2/posts?languages=2257&categories=221148&page=1&per_page=25")
+    data = r.json()
+
+    fg = FeedGenerator()
+    fg.title("Uber Engineering")
+    fg.link(href="https://www.uber.com/blog/engineering/")
+    fg.description("Articles from Uber Engineering")
+
+    articles = []
+
+    for story in data:
+        raw_content = story.get('content', {}).get('rendered', '')
+        text = BeautifulSoup(raw_content, 'html.parser').__str__().strip()
+
+        raw_description = story.get('excerpt', {}).get('rendered', '')
+        description = BeautifulSoup(raw_description, 'html.parser').text.strip()
+
+        link = story.get('link')
+
+        article_meta = story.get('yoast_head_json', {})
+        title = article_meta.get('title')
+        if title is None:
+            title = article_meta.get('og_title')
+        if title is None:
+            title = article_meta.get('twitter_title')
+
+        description = article_meta.get('description')
+        if description is None:
+            description = article_meta.get('og_description')
+        if description is None:
+            description = article_meta.get('twitter_description')
+        if description is None:
+            description = ""
+
+        published = article_meta.get('article_published_time')
+        authors = article_meta.get('author')
+        if not authors:
+            authors = article_meta.get('twitter_misc', {}).get('Written by', 'Unknown')
+
+        published_at = pendulum.parse(published)
+        modified = article_meta.get('article_modified_time')
+        modified_at = published_at
+        if modified is not None:
+            # Since 2022-07-07 and prior, some articles do not have modified times
+            # so we just set published instead
+            modified_at = pendulum.parse(modified)
+
+        articles.append({
+            'title': title,
+            'description': description,
+            'author': authors,
+            'text': text,
+            'date': published_at,
+            'modified': modified_at,
+            'link': link
+        })
+    
+    articles.sort(key=lambda x: x['date'])
+
+    for article in articles:
+        fe = fg.add_entry()
+        fe.id(article['link'])
+        fe.title(article['title'])
+        fe.pubDate(pubDate=article['date'])
+        fe.updated(updated=article['modified'])
+        fe.link(href=article['link'])
+        fe.summary(summary=article['description'])
+        fe.description(description=str(article['text']), isSummary=False)
 
     rssfeed = fg.rss_str(pretty=True)
     return Response(content=rssfeed, media_type="application/xml")
