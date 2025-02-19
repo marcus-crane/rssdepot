@@ -11,7 +11,7 @@ app = FastAPI()
 def root():
     return "Some useful feeds can be found here"
 
-@app.get("/hacker_news/highlights.rss")
+@app.get("/hn_highlights.rss")
 def serve_highlights():
     r = requests.get("https://news.ycombinator.com/highlights")
     soup = BeautifulSoup(r.text, 'html.parser')
