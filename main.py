@@ -1,6 +1,10 @@
+import json
+import os
+
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Response
 from feedgen.feed import FeedGenerator
+from json_repair import repair_json
 import newspaper
 import pendulum
 import requests
@@ -178,6 +182,59 @@ def serve_ubereng():
         fe.link(href=article['link'])
         fe.summary(summary=article['description'])
         fe.description(description=str(article['text']), isSummary=False)
+
+    rssfeed = fg.rss_str(pretty=True)
+    return Response(content=rssfeed, media_type="application/xml")
+
+@app.get("/the-situation.rss")
+def serve_the_situation():
+    # We use Flaresolverr because apparently Lawfare doesn't like a non-browser
+    # despite User-Agent spoofing. Flaresolverr returns JSON wrapped in HTML that
+    # is also busted so we need to do some munging to get it all working...
+    url = f"http://{os.environ.get('FLARESOLVERR_HOST', 'flaresolverr')}:8191/v1"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "cmd": "request.get",
+        "url": "https://www.lawfaremedia.org/sfapi/blog-posts/blogposts?$select=Title,Summary,PublicationDate,UrlName,subtopic,toptopics,Tags&$filter=subtopic/any(t:t%20eq%20e0893ae4-5071-430d-a352-616fbf370fd1)&$orderby=PublicationDate%20desc",
+        "maxTimeout": 60000
+    }
+    r = requests.post(url, headers=headers, json=data)
+    resp = r.json()['solution']['response']
+
+    soup = BeautifulSoup(resp, 'html.parser')
+    text = repair_json(soup.text)
+    data = json.loads(text).get('value', [])
+
+    fg = FeedGenerator()
+    fg.title("The Situation by Benjamin Wittes")
+    fg.link(href="https://www.lawfaremedia.org/contributors/bwittes")
+    fg.description("Issues of The Situation")
+
+    articles = []
+
+    for story in data:
+        soup = BeautifulSoup(story['Summary'], 'html.parser')
+
+        title = story['Title']
+        date = pendulum.parse(story['PublicationDate'])
+        link = f"https://www.lawfaremedia.org/article/{story['UrlName']}"
+
+        articles.append({
+            'title': title,
+            'description': soup.text,
+            'date': date,
+            'link': link
+        })
+
+    articles.sort(key=lambda x: x['date'])
+
+    for article in articles:
+        fe = fg.add_entry()
+        fe.id(article['link'])
+        fe.title(article['title'])
+        fe.pubDate(pubDate=article['date'])
+        fe.link(href=article['link'])
+        fe.summary(summary=article['description'])
 
     rssfeed = fg.rss_str(pretty=True)
     return Response(content=rssfeed, media_type="application/xml")
