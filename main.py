@@ -37,7 +37,7 @@ def serve_highlights():
         date_unparsed = comment.find("span", class_="age").attrs['title']
         date = pendulum.from_format(date_unparsed, 'YYYY-MM-DD[T]HH:mm:SS X')
         link_segment = comment.find("span", class_="age").a.attrs['href']
-        story_title = comment.find("span", class_="onstory").text.replace(" |  on: ", "")
+        story_title = comment.find("span", class_="onstory").a.attrs['title']
 
         comments.append({
             'title': f"{author} on {story_title}",
