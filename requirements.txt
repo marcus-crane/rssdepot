@@ -1,5 +1,5 @@
 beautifulsoup4==4.13.3
-fastapi[standard]==0.115.8
+fastapi[standard]==0.115.12
 feedgen==1.0.0
 json_repair==0.39.0
 lxml_html_clean==0.4.1
