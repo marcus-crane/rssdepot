@@ -186,6 +186,78 @@ def serve_ubereng():
     rssfeed = fg.rss_str(pretty=True)
     return Response(content=rssfeed, media_type="application/xml")
 
+@app.get("/nicb-news-releases.rss")
+def serve_nicb_news():
+    # Site is Cloudflare-protected, requires Flaresolverr
+    url = f"http://{os.environ.get('FLARESOLVERR_HOST', 'flaresolverr')}:8191/v1"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "cmd": "request.get",
+        "url": "https://www.nicb.org/news/news-releases",
+        "maxTimeout": 60000
+    }
+    r = requests.post(url, headers=headers, json=data)
+    resp = r.json()['solution']['response']
+
+    soup = BeautifulSoup(resp, 'html.parser')
+
+    # Find all article elements in the main content
+    raw_articles = soup.find_all("article")
+
+    fg = FeedGenerator()
+    fg.title("NICB News Releases")
+    fg.link(href="https://www.nicb.org/news/news-releases")
+    fg.description("News releases from the National Insurance Crime Bureau")
+
+    articles = []
+
+    for article in raw_articles:
+        link_el = article.find('a')
+        if not link_el or not link_el.get('href'):
+            continue
+
+        link_segment = link_el.get('href')
+        # Skip if not a news release link
+        if not link_segment.startswith('/news/news-releases/'):
+            continue
+
+        link = f"https://www.nicb.org{link_segment}"
+
+        # Get title from heading
+        heading = article.find(['h2', 'h3', 'h4'])
+        if not heading:
+            continue
+        title = heading.get_text(strip=True)
+
+        # Get date from div with class "date"
+        date_el = article.find('div', class_='date')
+        if not date_el:
+            continue
+        date_text = date_el.get_text(strip=True)
+
+        try:
+            date = pendulum.parse(date_text, strict=False)
+        except:
+            continue
+
+        articles.append({
+            'title': title,
+            'date': date,
+            'link': link
+        })
+
+    articles.sort(key=lambda x: x['date'])
+
+    for article in articles:
+        fe = fg.add_entry()
+        fe.id(article['link'])
+        fe.title(article['title'])
+        fe.pubDate(pubDate=article['date'])
+        fe.link(href=article['link'])
+
+    rssfeed = fg.rss_str(pretty=True)
+    return Response(content=rssfeed, media_type="application/xml")
+
 @app.get("/the-situation.rss")
 def serve_the_situation():
     # We use Flaresolverr because apparently Lawfare doesn't like a non-browser
