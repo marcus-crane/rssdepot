@@ -1,7 +1,7 @@
 beautifulsoup4==4.13.3
 fastapi[standard]==0.115.8
 feedgen==1.0.0
-json_repair==0.39.0
+json_repair==0.40.0
 lxml_html_clean==0.4.1
 newspaper4k[all]==0.9.3.1
 pendulum==3.0.0
