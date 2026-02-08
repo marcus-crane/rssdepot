@@ -1,0 +1,63 @@
+resources:
+  - name: repo
+    type: git
+    icon: github
+    source:
+      uri: https://github.com/marcus-crane/rssdepot
+      branch: main
+
+  - name: image
+    type: registry-image
+    icon: docker
+    source:
+      repository: ghcr.io/marcus-crane/rssdepot
+      tag: latest
+      username: ((github-token.username))
+      password: ((github-token.password))
+
+jobs:
+  - name: test
+    public: true
+    plan:
+      - get: repo
+        trigger: true
+      - task: run-tests
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: python, tag: "3.11-slim" }
+          inputs:
+            - name: repo
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                cd repo
+                pip install --quiet -r requirements-dev.txt
+                pytest tests/ -v
+
+  - name: build-and-push
+    public: true
+    plan:
+      - get: repo
+        trigger: true
+        passed: [test]
+      - task: build
+        privileged: true
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: concourse/oci-build-task }
+          inputs:
+            - name: repo
+              path: .
+          outputs:
+            - name: image
+          run:
+            path: build
+      - put: image
+        params:
+          image: image/image.tar
