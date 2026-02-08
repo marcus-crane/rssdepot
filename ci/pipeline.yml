@@ -49,7 +49,7 @@ jobs:
               curl -sf -X POST \
                 -H "Authorization: token ${GITHUB_TOKEN}" \
                 -H "Accept: application/vnd.github+v3+json" \
-                -d "{\"state\": \"${GITHUB_STATUS_STATE}\", \"context\": \"concourse/${BUILD_JOB_NAME}\", \"target_url\": \"${TARGET_URL}\"}" \
+                -d "{\"state\": \"${GITHUB_STATUS_STATE}\", \"context\": \"Concourse - ${BUILD_JOB_NAME}\", \"target_url\": \"${TARGET_URL}\"}" \
                 "https://api.github.com/repos/marcus-crane/rssdepot/statuses/${SHA}"
       params:
         GITHUB_STATUS_STATE: success
