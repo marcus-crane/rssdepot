@@ -70,3 +70,29 @@ jobs:
       - put: image
         params:
           image: image/image.tar
+
+  - name: deploy
+    public: false
+    plan:
+      - get: repo
+        trigger: true
+        passed: [build-and-push]
+      - task: deploy-to-netcafe
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: alpine, tag: "latest" }
+          params:
+            SSH_PRIVATE_KEY: ((netcafe-ssh.private_key))
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                apk add --no-cache openssh-client
+                mkdir -p ~/.ssh
+                echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+                chmod 600 ~/.ssh/id_ed25519
+                ssh -o StrictHostKeyChecking=no marcus@netcafe \
+                  "docker compose -f /home/marcus/stacks/personal/compose.yaml pull rssdepot && docker compose -f /home/marcus/stacks/personal/compose.yaml up -d rssdepot"
