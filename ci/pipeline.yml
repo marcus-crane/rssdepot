@@ -16,6 +16,14 @@ resources:
       password: ((github-token.password))
 
 jobs:
+  - name: update-pipeline
+    public: true
+    plan:
+      - get: repo
+        trigger: true
+      - set_pipeline: self
+        file: repo/ci/pipeline.yml
+
   - name: test
     public: true
     plan:
