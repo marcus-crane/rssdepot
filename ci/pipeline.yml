@@ -23,6 +23,7 @@ jobs:
         trigger: true
       - set_pipeline: self
         file: repo/ci/pipeline.yml
+        team: main
 
   - name: test
     public: true
