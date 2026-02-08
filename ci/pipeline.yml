@@ -66,16 +66,24 @@ jobs:
           outputs:
             - name: image
           run:
-            path: build
+            path: sh
+            args:
+              - -c
+              - |
+                build
+                git rev-parse --short HEAD > image/additional_tags
       - put: image
         params:
           image: image/image.tar
+          additional_tags: image/additional_tags
 
   - name: deploy
     public: false
     plan:
-      - get: repo
+      - get: image
         trigger: true
+        passed: [build-and-push]
+      - get: repo
         passed: [build-and-push]
       - task: deploy-to-netcafe
         config:
@@ -85,6 +93,7 @@ jobs:
             source: { repository: alpine, tag: "latest" }
           params:
             SSH_PRIVATE_KEY: ((netcafe-ssh.private_key))
+            SSH_HOST: ((netcafe-ssh.host))
           run:
             path: sh
             args:
@@ -94,5 +103,5 @@ jobs:
                 mkdir -p ~/.ssh
                 echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
                 chmod 600 ~/.ssh/id_ed25519
-                ssh -o StrictHostKeyChecking=no marcus@netcafe \
+                ssh -o StrictHostKeyChecking=no marcus@$SSH_HOST \
                   "docker compose -f /home/marcus/stacks/personal/compose.yaml pull rssdepot && docker compose -f /home/marcus/stacks/personal/compose.yaml up -d rssdepot"
