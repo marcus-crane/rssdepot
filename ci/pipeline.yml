@@ -1,10 +1,3 @@
-resource_types:
-  - name: cogito
-    type: registry-image
-    check_every: 24h
-    source:
-      repository: pix4d/cogito
-
 resources:
   - name: repo
     type: git
@@ -22,14 +15,6 @@ resources:
       username: ((github-token.username))
       password: ((github-token.password))
 
-  - name: gh-status
-    type: cogito
-    check_every: never
-    source:
-      owner: marcus-crane
-      repo: rssdepot
-      access_token: ((github-token.password))
-
 jobs:
   - name: update-pipeline
     public: true
@@ -43,27 +28,51 @@ jobs:
   - name: test
     public: true
     on_success:
-      put: gh-status
-      inputs: [repo]
-      params: { state: success }
+      task: github-status
+      config: &status-config
+        platform: linux
+        image_resource:
+          type: registry-image
+          source: { repository: curlimages/curl }
+        inputs:
+          - name: repo
+        params:
+          GITHUB_TOKEN: ((github-token.password))
+          GITHUB_STATUS_STATE: pending
+        run:
+          path: sh
+          args:
+            - -c
+            - |
+              SHA=$(cat repo/.git/ref)
+              TARGET_URL="${ATC_EXTERNAL_URL}/teams/${BUILD_TEAM_NAME}/pipelines/${BUILD_PIPELINE_NAME}/jobs/${BUILD_JOB_NAME}/builds/${BUILD_NAME}"
+              curl -sf -X POST \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+v3+json" \
+                -d "{\"state\": \"${GITHUB_STATUS_STATE}\", \"context\": \"concourse/${BUILD_JOB_NAME}\", \"target_url\": \"${TARGET_URL}\"}" \
+                "https://api.github.com/repos/marcus-crane/rssdepot/statuses/${SHA}"
+      params:
+        GITHUB_STATUS_STATE: success
     on_failure:
-      put: gh-status
-      inputs: [repo]
-      params: { state: failure }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: failure
     on_error:
-      put: gh-status
-      inputs: [repo]
-      params: { state: error }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: error
     on_abort:
-      put: gh-status
-      inputs: [repo]
-      params: { state: error }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: error
     plan:
       - get: repo
         trigger: true
-      - put: gh-status
-        inputs: [repo]
-        params: { state: pending }
+      - task: github-status
+        config: *status-config
       - task: run-tests
         config:
           platform: linux
@@ -84,28 +93,31 @@ jobs:
   - name: build-and-push
     public: true
     on_success:
-      put: gh-status
-      inputs: [repo]
-      params: { state: success }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: success
     on_failure:
-      put: gh-status
-      inputs: [repo]
-      params: { state: failure }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: failure
     on_error:
-      put: gh-status
-      inputs: [repo]
-      params: { state: error }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: error
     on_abort:
-      put: gh-status
-      inputs: [repo]
-      params: { state: error }
+      task: github-status
+      config: *status-config
+      params:
+        GITHUB_STATUS_STATE: error
     plan:
       - get: repo
         trigger: true
         passed: [test]
-      - put: gh-status
-        inputs: [repo]
-        params: { state: pending }
+      - task: github-status
+        config: *status-config
       - task: build
         privileged: true
         config:
