@@ -2,6 +2,8 @@ resources:
   - name: repo
     type: git
     icon: github
+    check_every: 24h
+    webhook_token: ((webhook-token))
     source:
       uri: https://github.com/marcus-crane/rssdepot
       branch: main
