@@ -403,6 +403,62 @@ class Section7Reports(FeedSource):
         return articles
 
 
+class MohNews(FeedSource):
+    path = "/moh-news.rss"
+    title = "Ministry of Health NZ News"
+    link = "https://www.health.govt.nz/news"
+    description = "News from the NZ Ministry of Health"
+    url = "https://www.health.govt.nz/news"
+    access = "flaresolverr"
+
+    def extract_articles(self, raw_text):
+        soup = BeautifulSoup(raw_text, 'html.parser')
+        articles = []
+
+        for article_el in soup.find_all('article', class_='sector-news'):
+            try:
+                title_div = article_el.find(class_='field--name-field-display-title')
+                if not title_div:
+                    continue
+                title_link = title_div.find('a')
+                if not title_link:
+                    continue
+                title = title_link.get_text(strip=True)
+                link = title_link.get('href', '')
+                if not title or not link:
+                    continue
+
+                date_div = article_el.find(class_='field--name-field-issue-date')
+                if not date_div:
+                    continue
+                time_el = date_div.find('time')
+                if not time_el or not time_el.get('datetime'):
+                    continue
+                date = pendulum.parse(time_el['datetime'])
+
+                summary = ''
+                body_div = article_el.find('div', class_='field--name-body')
+                if body_div:
+                    p = body_div.find('p')
+                    if p:
+                        summary = p.get_text(strip=True)
+
+                entry = {
+                    'title': title,
+                    'link': link,
+                    'date': date,
+                }
+                if summary:
+                    entry['summary'] = summary
+
+                articles.append(entry)
+            except Exception:
+                logger.exception("Failed to parse MoH news article")
+                continue
+
+        return articles
+
+
 FEEDS_REGISTRY: list[FeedSource] = [
     HackerNewsHighlights(),
     RnzPhilPennington(),
@@ -410,6 +466,7 @@ FEEDS_REGISTRY: list[FeedSource] = [
     NicbNewsReleases(),
     TheSituation(),
     Section7Reports(),
+    MohNews(),
 ]
 
 # Backward compat — tests import this

@@ -7,7 +7,7 @@ import pendulum
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app, make_feed, url_cache, FEEDS, _feed_cache
+from main import app, make_feed, url_cache, FEEDS, _feed_cache, MohNews
 
 client = TestClient(app)
 
@@ -498,3 +498,97 @@ class TestTheSituation:
         # Verify links are constructed correctly
         links = [item.findtext("link") for item in items]
         assert "https://www.lawfaremedia.org/article/the-situation-january-2025" in links
+
+
+# ---------------------------------------------------------------------------
+# GET /moh-news.rss
+# ---------------------------------------------------------------------------
+
+MOH_NEWS_HTML = """
+<html><body>
+<article class="sector-news">
+  <div class="field field--name-field-display-title">
+    <h2><a href="https://www.health.govt.nz/news/new-covid-guidance">New COVID Guidance Released</a></h2>
+  </div>
+  <div class="field field--name-field-issue-date">
+    <time datetime="2025-06-15T10:00:00+12:00">15 June 2025</time>
+  </div>
+  <div class="field field--name-body">
+    <p>The Ministry has released updated COVID-19 guidance for winter 2025.</p>
+  </div>
+  <li class="field--name-field-types">News article</li>
+</article>
+<article class="sector-news">
+  <div class="field field--name-field-display-title">
+    <h2><a href="https://www.health.govt.nz/news/mental-health-funding">Mental Health Funding Boost</a></h2>
+  </div>
+  <div class="field field--name-field-issue-date">
+    <time datetime="2025-06-10T09:00:00+12:00">10 June 2025</time>
+  </div>
+  <div class="field field--name-body">
+    <p>Government announces additional funding for mental health services.</p>
+  </div>
+  <li class="field--name-field-types">Media release</li>
+</article>
+<article class="sector-news">
+  <div class="field field--name-field-display-title">
+    <h2><a href="https://www.health.govt.nz/news/vaccination-update">Vaccination Programme Update</a></h2>
+  </div>
+  <div class="field field--name-field-issue-date">
+    <time datetime="2025-06-05T08:00:00+12:00">5 June 2025</time>
+  </div>
+  <li class="field--name-field-types">News article</li>
+</article>
+<article class="sector-news">
+  <!-- Missing title -->
+  <div class="field field--name-field-issue-date">
+    <time datetime="2025-06-01T08:00:00+12:00">1 June 2025</time>
+  </div>
+  <div class="field field--name-body">
+    <p>Article with no title should be skipped.</p>
+  </div>
+</article>
+<article class="sector-news">
+  <div class="field field--name-field-display-title">
+    <h2><a href="https://www.health.govt.nz/news/no-date-article">Article Without Date</a></h2>
+  </div>
+  <!-- Missing date -->
+  <div class="field field--name-body">
+    <p>Article with no date should be skipped.</p>
+  </div>
+</article>
+</body></html>
+"""
+
+
+class TestMohNews:
+    @patch("main.requests.post")
+    def test_returns_valid_rss(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {'solution': {'response': MOH_NEWS_HTML}}
+        mock_post.return_value = mock_resp
+
+        resp = client.get("/moh-news.rss")
+        root = parse_rss(resp)
+        items = get_items(root)
+        # 3 valid articles (COVID, Mental Health, Vaccination — no summary is fine)
+        assert len(items) == 3
+
+        titles = [item.findtext("title") for item in items]
+        assert "New COVID Guidance Released" in titles
+        assert "Mental Health Funding Boost" in titles
+        assert "Vaccination Programme Update" in titles
+
+    @patch("main.requests.post")
+    def test_skips_articles_missing_required_fields(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {'solution': {'response': MOH_NEWS_HTML}}
+        mock_post.return_value = mock_resp
+
+        resp = client.get("/moh-news.rss")
+        root = parse_rss(resp)
+        items = get_items(root)
+        titles = [item.findtext("title") for item in items]
+        # Article without title and article without date should both be skipped
+        assert len(items) == 3
+        assert "Article Without Date" not in titles
