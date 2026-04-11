@@ -459,6 +459,79 @@ class MohNews(FeedSource):
         return articles
 
 
+class UnifiedGoodsCuriosities(FeedSource):
+    path = "/unifiedgoods-curiosities.rss"
+    title = "Unified Goods — Curiosities"
+    link = "https://unifiedgoods.com/collections/curiosities"
+    description = "Available items in the Unified Goods curiosities collection"
+    url = "https://unifiedgoods.com/collections/curiosities/products.json"
+    access = "direct"
+
+    PAGE_LIMIT = 250
+
+    def fetch_raw(self) -> str:
+        products = []
+        page = 1
+        while True:
+            try:
+                resp = requests.get(
+                    self.url,
+                    params={"limit": self.PAGE_LIMIT, "page": page},
+                    timeout=REQUEST_TIMEOUT,
+                )
+            except requests.exceptions.ConnectionError as e:
+                raise FeedUnavailable(f"Connection error: {e}") from e
+            except requests.exceptions.Timeout as e:
+                raise FeedUnavailable(f"Request timed out after {REQUEST_TIMEOUT}s") from e
+            except requests.exceptions.RequestException as e:
+                raise FeedUnavailable(f"Request failed: {e}") from e
+
+            batch = resp.json().get("products", [])
+            if not batch:
+                break
+            products.extend(batch)
+            if len(batch) < self.PAGE_LIMIT:
+                break
+            page += 1
+        return json.dumps({"products": products})
+
+    def extract_articles(self, raw_text: str) -> list[dict]:
+        data = json.loads(raw_text)
+        articles = []
+
+        for product in data.get("products", []):
+            variants = product.get("variants") or []
+            if not any(v.get("available") for v in variants):
+                continue
+
+            handle = product.get("handle")
+            title = product.get("title")
+            published = product.get("published_at") or product.get("created_at")
+            if not (handle and title and published):
+                continue
+
+            price = variants[0].get("price")
+            body_html = product.get("body_html") or ""
+            body_text = BeautifulSoup(body_html, "html.parser").get_text(" ", strip=True)
+
+            summary_bits = []
+            if price:
+                summary_bits.append(f"£{price}")
+            if body_text:
+                summary_bits.append(body_text)
+            summary = " — ".join(summary_bits) if summary_bits else title
+
+            articles.append({
+                "title": title,
+                "link": f"https://unifiedgoods.com/products/{handle}",
+                "date": pendulum.parse(published),
+                "summary": summary,
+                "text": body_html,
+            })
+
+        return articles
+
+
 FEEDS_REGISTRY: list[FeedSource] = [
     HackerNewsHighlights(),
     RnzPhilPennington(),
@@ -467,6 +540,7 @@ FEEDS_REGISTRY: list[FeedSource] = [
     TheSituation(),
     Section7Reports(),
     MohNews(),
+    UnifiedGoodsCuriosities(),
 ]
 
 # Backward compat — tests import this

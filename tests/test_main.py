@@ -592,3 +592,86 @@ class TestMohNews:
         # Article without title and article without date should both be skipped
         assert len(items) == 3
         assert "Article Without Date" not in titles
+
+
+# ---------------------------------------------------------------------------
+# GET /unifiedgoods-curiosities.rss
+# ---------------------------------------------------------------------------
+
+UNIFIED_GOODS_JSON = {
+    "products": [
+        {
+            "id": 1,
+            "title": "1996 X-Files Pinbadge",
+            "handle": "1996-x-files-pinbadge",
+            "body_html": "<p>A cool pinbadge.</p>",
+            "published_at": "2024-11-15T12:00:00-05:00",
+            "variants": [{"price": "22.00", "available": True}],
+        },
+        {
+            "id": 2,
+            "title": "Sold Out Item",
+            "handle": "sold-out-item",
+            "body_html": "<p>Gone.</p>",
+            "published_at": "2024-10-01T12:00:00-05:00",
+            "variants": [{"price": "50.00", "available": False}],
+        },
+        {
+            "id": 3,
+            "title": "Multi Variant Item",
+            "handle": "multi-variant",
+            "body_html": "<p>Two sizes.</p>",
+            "published_at": "2024-12-01T12:00:00-05:00",
+            "variants": [
+                {"price": "30.00", "available": False},
+                {"price": "30.00", "available": True},
+            ],
+        },
+    ]
+}
+
+
+class TestUnifiedGoodsCuriosities:
+    @patch("main.requests.get")
+    def test_filters_sold_out_products(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = UNIFIED_GOODS_JSON
+        mock_get.return_value = mock_resp
+
+        resp = client.get("/unifiedgoods-curiosities.rss")
+        root = parse_rss(resp)
+        items = get_items(root)
+        # Sold Out Item should be excluded; multi-variant kept because one variant is available
+        assert len(items) == 2
+
+        titles = [item.findtext("title") for item in items]
+        assert "1996 X-Files Pinbadge" in titles
+        assert "Multi Variant Item" in titles
+        assert "Sold Out Item" not in titles
+
+    @patch("main.requests.get")
+    def test_links_point_to_product_page(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = UNIFIED_GOODS_JSON
+        mock_get.return_value = mock_resp
+
+        resp = client.get("/unifiedgoods-curiosities.rss")
+        root = parse_rss(resp)
+        items = get_items(root)
+        links = [item.findtext("link") for item in items]
+        assert "https://unifiedgoods.com/products/1996-x-files-pinbadge" in links
+
+    @patch("main.requests.get")
+    def test_paginates_until_empty(self, mock_get):
+        page1_resp = MagicMock()
+        page1_resp.json.return_value = {
+            "products": [UNIFIED_GOODS_JSON["products"][0]] * 250
+        }
+        page2_resp = MagicMock()
+        page2_resp.json.return_value = {"products": []}
+        mock_get.side_effect = [page1_resp, page2_resp]
+
+        resp = client.get("/unifiedgoods-curiosities.rss")
+        assert resp.status_code == 200
+        # Two calls: one full page + one empty page to confirm end
+        assert mock_get.call_count == 2
