@@ -56,6 +56,8 @@ def make_feed(title, link, description, articles):
             fe.description(description=str(article['text']), isSummary=False)
         if 'modified' in article:
             fe.updated(updated=article['modified'])
+        if 'image' in article:
+            fe.enclosure(url=article['image'], type="image/jpeg", length="0")
 
     rssfeed = fg.rss_str(pretty=True)
     return Response(content=rssfeed, media_type="application/xml")
@@ -513,6 +515,8 @@ class UnifiedGoodsCuriosities(FeedSource):
             price = variants[0].get("price")
             body_html = product.get("body_html") or ""
             body_text = BeautifulSoup(body_html, "html.parser").get_text(" ", strip=True)
+            images = product.get("images") or []
+            image_url = images[0]["src"] if images else None
 
             summary_bits = []
             if price:
@@ -521,13 +525,16 @@ class UnifiedGoodsCuriosities(FeedSource):
                 summary_bits.append(body_text)
             summary = " — ".join(summary_bits) if summary_bits else title
 
-            articles.append({
+            article = {
                 "title": title,
                 "link": f"https://unifiedgoods.com/products/{handle}",
                 "date": pendulum.parse(published),
                 "summary": summary,
                 "text": body_html,
-            })
+            }
+            if image_url:
+                article["image"] = image_url
+            articles.append(article)
 
         return articles
 

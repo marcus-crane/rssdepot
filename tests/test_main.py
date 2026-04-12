@@ -607,6 +607,7 @@ UNIFIED_GOODS_JSON = {
             "body_html": "<p>A cool pinbadge.</p>",
             "published_at": "2024-11-15T12:00:00-05:00",
             "variants": [{"price": "22.00", "available": True}],
+            "images": [{"src": "https://cdn.shopify.com/xfiles.jpg"}],
         },
         {
             "id": 2,
@@ -626,6 +627,7 @@ UNIFIED_GOODS_JSON = {
                 {"price": "30.00", "available": False},
                 {"price": "30.00", "available": True},
             ],
+            "images": [{"src": "https://cdn.shopify.com/multi.jpg"}],
         },
     ]
 }
@@ -660,6 +662,21 @@ class TestUnifiedGoodsCuriosities:
         items = get_items(root)
         links = [item.findtext("link") for item in items]
         assert "https://unifiedgoods.com/products/1996-x-files-pinbadge" in links
+
+    @patch("main.requests.get")
+    def test_includes_image_enclosure(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = UNIFIED_GOODS_JSON
+        mock_get.return_value = mock_resp
+
+        resp = client.get("/unifiedgoods-curiosities.rss")
+        root = parse_rss(resp)
+        items = get_items(root)
+        enclosures = [item.find("enclosure") for item in items]
+        assert all(e is not None for e in enclosures)
+        urls = {e.get("url") for e in enclosures}
+        assert "https://cdn.shopify.com/xfiles.jpg" in urls
+        assert enclosures[0].get("type") == "image/jpeg"
 
     @patch("main.requests.get")
     def test_paginates_until_empty(self, mock_get):
